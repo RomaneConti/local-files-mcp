@@ -1,0 +1,8 @@
+# Documentation template only. First launch writes your choices to the local-config directory.
+# Use your own existing local directories. Files below these roots are readable.
+[roots]
+project = 'C:\Projects\Example'
+
+[browse]
+# Skipped during recursive discovery; these are not additional access controls.
+skip_directories = ['.git', '.venv', 'venv', '__pycache__', 'node_modules', '.pytest_cache']

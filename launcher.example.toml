@@ -1,0 +1,11 @@
+# Documentation template only. Never put an API key in this file.
+[tunnel]
+id = '' # Enter the ID created in OpenAI Platform during first-run setup.
+
+[network]
+proxy_url = '' # Optional HTTP(S) proxy, including its port; blank means direct.
+no_proxy = '127.0.0.1,localhost'
+
+[ports]
+mcp = 8765
+tunnel = 8766

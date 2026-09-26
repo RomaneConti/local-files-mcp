@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "local-files-mcp"
+version = "0.1.0"
+description = "Windows allowlisted, read-only local file MCP server"
+requires-python = ">=3.11"
+dependencies = ["mcp>=2.2,<3", "numpy>=2.2,<3", "pystray>=0.19,<1", "pillow>=11,<13", "pyyaml>=6,<7", "pywin32>=310; sys_platform == 'win32'"]
+
+[project.scripts]
+local-files-mcp = "local_files_mcp.server:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+build = ["pyinstaller>=6,<7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
