@@ -9,6 +9,7 @@ import time
 
 from .security import PathPolicy, PathAccessError
 from .text import decode_text, text_stream, validate_encoding
+from .readers.dispatch import refuse_unsafe
 
 MAX_VISITED = 10000
 MAX_SECONDS = 5
@@ -179,6 +180,7 @@ def search_text(policy: PathPolicy, skipped: frozenset[str], root: str, query: s
             state.reasons.add("search_budget")
             break
         try:
+            refuse_unsafe(child)
             with policy.open_file(root, child) as stream, text_stream(stream, child.lower().endswith(".gz")) as reader:
                 budget = min(MAX_FILE_SEARCH_BYTES, MAX_SEARCH_BYTES - read_bytes)
                 data = reader.read(budget)

@@ -6,6 +6,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .test-tmp/
+.test-tmp-*/
 .test-tmp-security*/
 .runtime/
 vendor/
@@ -17,6 +18,7 @@ launcher.toml
 config.toml
 .env
 .env.*
+/runtime_API_key.txt
 config.local.toml
 *.dpapi
 *.dpapi.tmp

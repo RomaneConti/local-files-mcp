@@ -10,7 +10,7 @@ from mcp import Client, StdioServerParameters
 from local_files_mcp.user_config import default_data_dir
 
 
-async def check(url: str | None, config: Path | None = None):
+async def check(url: str | None, config: Path | None = None, list_tools: bool = False):
     project = Path(__file__).resolve().parents[1]
     target = url or StdioServerParameters(
         command=sys.executable,
@@ -18,7 +18,13 @@ async def check(url: str | None, config: Path | None = None):
               "--config", str(config or default_data_dir() / "config.toml")], cwd=str(project))
     async with Client(target) as client:
         tools = (await client.list_tools()).tools
-        assert len(tools) == 9
+        from local_files_mcp.tool_catalog import EXPECTED_TOOLS
+        discovery = {"server": client.server_info.model_dump(by_alias=True, exclude_none=True),
+                     "tool_count": len(tools), "tools": sorted(t.name for t in tools)}
+        if list_tools:
+            print(json.dumps(discovery, indent=2))
+            return
+        assert {tool.name for tool in tools} == EXPECTED_TOOLS
         assert all(t.annotations.read_only_hint and not t.annotations.destructive_hint for t in tools)
 
         async def call(name, **arguments):
@@ -50,12 +56,13 @@ async def check(url: str | None, config: Path | None = None):
                             "file_read": candidate, "file_size": metadata["size_bytes"],
                             "bytes_read": content["bytes_returned"], "function_matches": len(search["matches"]),
                             "traversal_denied": True})
-        print(json.dumps({"transport": url or "stdio", "tools": len(tools), "roots": reports}, indent=2))
+        print(json.dumps({"transport": url or "stdio", **discovery, "roots": reports}, indent=2))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", help="Existing loopback HTTP server; omit to launch an isolated stdio process")
     parser.add_argument("--config", type=Path, help="Override user config for an isolated stdio check")
+    parser.add_argument("--list-tools", action="store_true", help="Print actual MCP server version and tool names without reading files")
     args = parser.parse_args()
-    asyncio.run(check(args.url, args.config))
+    asyncio.run(check(args.url, args.config, args.list_tools))

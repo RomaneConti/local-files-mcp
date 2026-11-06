@@ -16,11 +16,11 @@ import time
 from typing import Callable
 from urllib.parse import urlsplit
 
+from . import __version__
 from .launcher_config import LauncherConfig, build_child_environment, build_tunnel_command
 from .windows_process import ManagedProcess
 
-EXPECTED_TOOLS = {"list_roots", "list_directory", "find_files", "search_text", "file_info",
-                  "read_text", "read_json", "inspect_array", "read_array"}
+from .tool_catalog import EXPECTED_TOOLS
 MAX_PROBE_BYTES = 256 * 1024
 
 
@@ -109,7 +109,7 @@ def probe_mcp(port: int) -> tuple[bool, str]:
         status, initialized = _request(port, "/mcp", {
             "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
                 "protocolVersion": "2025-11-25", "capabilities": {},
-                "clientInfo": {"name": "local-files-tray-health", "version": "0.1.0"}}})
+                "clientInfo": {"name": "local-files-tray-health", "version": __version__}}})
         if status != 200 or "result" not in initialized:
             return False, f"MCP initialize failed (HTTP {status})"
         status, result = _request(port, "/mcp", {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
@@ -117,12 +117,13 @@ def probe_mcp(port: int) -> tuple[bool, str]:
             return False, f"MCP tools/list failed (HTTP {status})"
         tools = result["result"].get("tools", [])
         if len(tools) != len(EXPECTED_TOOLS) or {tool.get("name") for tool in tools} != EXPECTED_TOOLS:
-            return False, "MCP tool list differs from the 9 expected read-only tools"
+            return False, f"MCP tool list differs from the {len(EXPECTED_TOOLS)} expected read-only tools"
         if not all(tool.get("annotations", {}).get("readOnlyHint") is True and
                    tool.get("annotations", {}).get("destructiveHint") is False and
                    tool.get("annotations", {}).get("openWorldHint") is False for tool in tools):
             return False, "MCP read-only tool annotations failed validation"
-        return True, "MCP initialize and all 9 read-only tool definitions verified"
+        version = initialized["result"].get("serverInfo", {}).get("version", "unknown")
+        return True, f"MCP v{version}: initialize and all {len(EXPECTED_TOOLS)} read-only tool definitions verified"
     except (OSError, ValueError, http.client.HTTPException, KeyError, TypeError, AttributeError):
         return False, "MCP HTTP/protocol health check unavailable"
 

@@ -1,6 +1,6 @@
 # Local Files MCP for Windows
 
-让 ChatGPT 按需浏览、搜索和分段读取你允许的 Windows 本地目录。支持代码、日志、JSON/JSONL、gzip 文本和 NumPy NPY/NPZ；通过官方 Secure MCP Tunnel 连接，不需要上传整个目录。
+让 ChatGPT 按需浏览、搜索和分段读取你允许的 Windows 本地目录。支持代码、日志、JSON/JSONL、gzip 文本、NumPy、Office 文档、PDF、科学数据、SQLite、图片和归档文件；通过官方 Secure MCP Tunnel 连接，不需要上传整个目录。
 
 服务严格只读：没有写入、删除、重命名、执行 shell 或运行项目代码的 MCP 工具。托盘启动器负责后台运行 MCP 和官方 tunnel-client。
 
@@ -9,7 +9,7 @@
 需要 Windows 10/11、Git，以及下载构建依赖的网络连接。在 PowerShell 中运行：
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/RomaneConti/local-files-mcp.git
 cd local-files-mcp
 .\build.ps1
 ```
@@ -55,7 +55,7 @@ API key 不写入普通配置、命令行或 Git。读取已保存凭据时由 W
 
 [config.example.toml](config.example.toml) 和 [launcher.example.toml](launcher.example.toml) 仅用于说明格式，不包含个人信息。手工编辑实际配置后点击托盘“重启”。高级测试可通过 `--data-dir <directory>` 使用隔离的配置目录。`local-config` 被 Git 忽略；不要将它放进要分享的程序包。换电脑时重新配置目录及密钥。
 
-代理只应用于 OpenAI control plane；本地 MCP、健康检查始终直连，`NO_PROXY` 保留 `127.0.0.1,localhost`。状态检查包括 MCP 协议握手及 9 个工具定义，以及 Tunnel 的真实 control-plane 成功记录。仅有进程或 `/readyz` 返回 200 不会显示连接就绪。
+代理只应用于 OpenAI control plane；本地 MCP、健康检查始终直连，`NO_PROXY` 保留 `127.0.0.1,localhost`。状态检查包括 MCP 协议握手及全部 15 个只读工具定义，以及 Tunnel 的真实 control-plane 成功记录。仅有进程或 `/readyz` 返回 200 不会显示连接就绪。
 
 菜单是固定的原生菜单，不随 health polling 重建。组件状态显示在图标提示和状态窗口，并仅在显示内容改变时更新。
 
@@ -70,8 +70,14 @@ API key 不写入普通配置、命令行或 Git。读取已保存凭据时由 W
 | `file_info` | 文件大小、修改时间和建议读取方式 |
 | `read_text` | 文本/JSONL/gzip 的有界片段 |
 | `read_json` | 小型 JSON 的结构化预览 |
-| `inspect_array` | NPY/NPZ shape、dtype、成员元数据 |
-| `read_array` | 有界 NumPy 样本 |
+| `inspect_array` | NPY/NPZ/HDF5/MAT shape、dtype、成员元数据 |
+| `read_array` | 数组分页；HDF5/MAT 支持矩形 start/shape 切片 |
+| `inspect_file` | 工作表、schema、dataset、页/slide、表、归档成员等结构发现 |
+| `read_table` | Excel、Parquet/Feather、Word/PPT 表格、SQLite 的行列分页 |
+| `read_document` | PDF 指定页、Word 正文块、PPT 指定 slide |
+| `search_file` | 单个 Excel/PDF/Word/PPT 文件内的有界文本搜索 |
+| `read_image` | PNG/JPEG/静态 WebP 的原生 MCP 图片预览 |
+| `read_archive_member` | ZIP/TAR/TAR.GZ 安全成员的文本窗口，不落盘解压 |
 
 示例：
 
@@ -79,6 +85,12 @@ API key 不写入普通配置、命令行或 Git。读取已保存凭据时由 W
 - “先检查这个日志大小，只读取末尾 16 KiB。”
 - “预览这个 JSONL/GZ 的前几条记录，不要一次读取整个文件。”
 - “先查看 NPZ 成员和 shape/dtype，再读取指定成员的 20 个值。”
+- “先检查这个 Excel 有哪些工作表，再读取 Data 表的前 20 行、A 到 D 列，使用缓存值。”
+- “查看这个 Parquet 的 schema，只读 temperature 列第 100 到 119 行。”
+- “列出 HDF5 的 dataset，读取 observations 的一个小切片。”
+- “搜索 PDF 中的 convergence，只读命中页；直接查看 results.png。”
+
+格式、选择器、分页单位与明确限制见 [格式读取指南](docs/file-formats.md)。先调用 `file_info` / `inspect_file`，再按返回的 reader、selector 和 next_offset 继续读取。更新后若 ChatGPT 仍只显示旧的 9 个工具，请在 [ChatGPT Plugins](https://chatgpt.com/plugins) 打开现有连接，选择 **Refresh**，确认发现 15 个工具，再新建对话。具体步骤与协议诊断命令见 [接入文档](docs/chatgpt-setup.md)；仅重启 EXE 不会刷新 ChatGPT 保存的工具定义。
 
 ## 只读安全和读取限制
 
@@ -86,7 +98,9 @@ MCP 调用只能使用已配置根目录的别名和相对路径，不能新增�
 
 服务只监听回环地址并校验 Host/Origin；它信任本机进程，没有独立本机用户认证。不要用无认证反向代理公开端点。远端使用权限由 OpenAI 组织/工作区控制。允许目录内的文件均属于获准读取范围；被请求的片段会发给 ChatGPT。文件内容应作为数据处理，不能作为操作指令。
 
-每次结果最多 64 KiB；文本窗口最多 32 KiB。搜索有文件数、字节数、深度及时间预算，未完成会明确返回，不能把局部“未找到”当成整个仓库无匹配。gzip 只支持前 8 MiB 解压内容内的窗口；普通日志支持随机字节偏移。JSON 结构化读取限 4 MiB，更大的文档用文本窗口。NPY 直接读取头部和样本，不加载全数组；NPZ 有压缩输入/成员数/解压上限。拒绝 object/pickle，ZIP 不解压到磁盘。数组偏移按文件存储顺序计算，不执行任意 Python 切片或统计代码。
+每次 JSON 结果最多 64 KiB；文本窗口最多 32 KiB。图片单独以原生 image content 返回，编码后最多 512 KiB，附带小型尺寸元数据。搜索有文件数、字节数、深度及时间预算，未完成会明确返回，不能把局部“未找到”当成整个仓库无匹配。gzip 只支持前 8 MiB 解压内容内的窗口；普通日志支持随机字节偏移。JSON 结构化读取限 4 MiB，更大的文档用文本窗口。NPY 直接读取头部和样本，不加载全数组；NPZ 有压缩输入/成员数/解压上限。
+
+所有格式解析器都接收 `PathPolicy` 已验证的只读句柄，不根据输入路径重新打开文件。拒绝 `.pkl/.pickle/.joblib/.pt/.pth` 内容解析和 NumPy object/pickle；不调用 pickle/torch 反序列化。Office 不执行宏、公式或外部关系；HDF5 不跟随外链、虚拟 dataset、外部存储或对象引用；SQLite 使用真正只读连接及句柄 VFS，禁止写入、ATTACH 和用户 PRAGMA。归档不解压到磁盘，拒绝路径穿越、链接、稀疏成员和超预算解压。超过安全预算的复杂格式会明确拒绝，不能通过增大分页参数绕过。
 
 ## 开发与验证
 
@@ -94,6 +108,14 @@ MCP 调用只能使用已配置根目录的别名和相对路径，不能新增�
 
 ```powershell
 .\.venv\Scripts\python.exe -B -m pytest -q --basetemp .test-tmp
+```
+
+构建后可让同一组真实格式 HTTP 测试直接调用 EXE（测试数据只写入项目内临时目录）：
+
+```powershell
+$env:LOCAL_FILES_MCP_TEST_EXE = (Resolve-Path .\dist\LocalFilesMCP\LocalFilesMCP.exe).Path
+.\.venv\Scripts\python.exe -B -m pytest -q tests\test_format_transport.py --basetemp .test-tmp-formats
+Remove-Item Env:LOCAL_FILES_MCP_TEST_EXE
 ```
 
 端口空闲且已经完成本机配置时，可验证实际 EXE 自动启动、真实连接、停止、重启、退出和子进程回收：

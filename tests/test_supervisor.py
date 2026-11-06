@@ -63,7 +63,8 @@ def child_script(tmp_path):
     path.write_text('''
 import json, os, sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
-tools = "list_roots list_directory find_files search_text file_info read_text read_json inspect_array read_array".split()
+from local_files_mcp.tool_catalog import EXPECTED_TOOLS
+tools = sorted(EXPECTED_TOOLS)
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args): pass
     def reply(self, data):

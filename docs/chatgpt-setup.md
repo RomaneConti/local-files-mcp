@@ -29,7 +29,24 @@
 3. Connection 选择 **Tunnel**，选择已有 Tunnel 或填入对应 ID。不要把本机 `127.0.0.1` 当作公开远程服务地址。
 4. 创建连接并检查发现的工具。新建普通对话，选中该连接，然后请求“列出允许的根目录”，再读取一个小片段。
 
-更新 MCP 工具定义后，在连接页面刷新工具，再新建对话。仅修改允许目录不需要重新打包。
+更新 MCP 工具定义后，需要更新 ChatGPT 保存的连接元数据，重启 EXE 不会自动完成这一步：
+
+1. 启动最新 EXE，等托盘 MCP 和 Tunnel 就绪。
+2. 打开 [ChatGPT Plugins](https://chatgpt.com/plugins)，进入现有 Local Files 连接，选择 **Refresh**。
+3. 确认连接发现了 15 个工具，包括 `inspect_file`、`read_table`、`read_document`、`search_file`、`read_image`、`read_archive_member`。
+4. 新建对话并选中该连接，再测试读取。旧对话可能仍使用旧的工具定义。
+
+这是 [OpenAI 官方 Refresh metadata 流程](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata)。仅修改允许目录不需要重新打包或刷新工具定义。
+
+如果 `file_info` 已推荐新工具，而 ChatGPT 声称这些工具不存在，先区分服务端注册与连接元数据。托盘状态和 `launcher.log` 会显示 MCP 协议握手返回的服务版本及实际工具数量，`list_roots` 也返回 `server_version`。可在完成构建的源码目录检查真实 HTTP 服务：
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts\smoke-test.py --url http://127.0.0.1:8765/mcp --list-tools
+```
+
+此命令直接调用 MCP `initialize` 和 `tools/list`，不读取文件内容。若本地为 15 个，而 ChatGPT 只有旧的 9 个，按上面的 Refresh 流程操作；若本地也缺工具，则检查是否启动了旧 EXE 或其他环境的入口。版本号用于诊断，不能替代 ChatGPT 元数据刷新。
+
+`file_info.reader` 表示建议首先调用的 MCP 工具；`readers` 表示检查文件结构后可继续调用的读取/搜索工具。例如 Excel 先 `inspect_file` 获取 sheet，再 `read_table` / `search_file`；PDF 先 `inspect_file` 获取页数，再 `read_document` / `search_file`。这些名称均是公开的 MCP tools，不是内部 dispatcher 名称。
 
 ## 排查
 

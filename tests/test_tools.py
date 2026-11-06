@@ -11,6 +11,7 @@ from local_files_mcp import browse
 from local_files_mcp.config import Config, load_config
 from local_files_mcp.security import PathPolicy
 from local_files_mcp.server import create_server
+from local_files_mcp.tool_catalog import EXPECTED_TOOLS
 from local_files_mcp.text import MAX_GZIP_PREFIX, read_window
 
 
@@ -61,9 +62,7 @@ def test_tools_metadata_and_calls(fixture_root):
 
     async def run():
         definitions = await server.list_tools()
-        assert {tool.name for tool in definitions} == {
-            "list_roots", "list_directory", "find_files", "search_text", "file_info",
-            "read_text", "read_json", "inspect_array", "read_array"}
+        assert {tool.name for tool in definitions} == EXPECTED_TOOLS
         for tool in definitions:
             assert tool.annotations.read_only_hint is True
             assert tool.annotations.destructive_hint is False
